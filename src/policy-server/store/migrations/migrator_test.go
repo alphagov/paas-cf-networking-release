@@ -1356,7 +1356,6 @@ var _ = Describe("migrations", func() {
 						Expect(columns).To(ContainElement("terminal_id"))
 						Expect(columns).To(ContainElement("space_guid"))
 					})
-
 				})
 			})
 
@@ -1391,7 +1390,6 @@ var _ = Describe("migrations", func() {
 						Expect(columns).To(ContainElement("terminal_id"))
 						Expect(columns).To(ContainElement("space_guid"))
 					})
-
 				})
 			})
 		})
@@ -1445,6 +1443,110 @@ var _ = Describe("migrations", func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 			})
+		})
+
+		Describe("V22 - ID to GUID Named Destination", func() {
+			Context("mysql", func() {
+				BeforeEach(func() {
+					if realDb.DriverName() != "mysql" {
+						// Skip("skipping mysql tests")
+					}
+				})
+
+				FIt("should migrate", func() {
+					By("performing migration")
+					numMigrations, err := migrator.PerformMigrations(realDb.DriverName(), realDb, 53)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(numMigrations).To(Equal(53))
+
+					rows, err := realDb.Query(helpers.RebindForSQLDialect(`
+							select COLUMN_NAME
+							from INFORMATION_SCHEMA.COLUMNS t1
+							where TABLE_NAME='terminals'
+						`, realDb.DriverName()))
+					Expect(err).NotTo(HaveOccurred())
+
+					By("verifying the guid column exists and the id column does not", func() {
+						var columns []string
+						defer rows.Close()
+						for rows.Next() {
+							var columnName string
+							Expect(rows.Scan(&columnName)).To(Succeed())
+							columns = append(columns, columnName)
+						}
+						Expect(columns).To(ContainElement("guid"))
+						Expect(columns).NotTo(ContainElement("id"))
+					})
+
+					rows, err = realDb.Query(helpers.RebindForSQLDialect(`
+							select TABLE_NAME, COLUMN_NAME
+							from INFORMATION_SCHEMA.COLUMNS t1
+							where TABLE_NAME IN ('apps', 'spaces', 'ip_ranges', 'destination_metadatas', 'egress_policies')
+						`, realDb.DriverName()))
+					Expect(err).NotTo(HaveOccurred())
+
+					By("verifying the terminal_guid column exists and the terminal_id column does not", func() {
+						columns := map[string][]string{}
+						defer rows.Close()
+						for rows.Next() {
+							var tableName, columnName string
+							Expect(rows.Scan(&tableName, &columnName)).To(Succeed())
+							columns[tableName] = append(columns[tableName], columnName)
+						}
+						Expect(columns["apps"]).To(ContainElement("terminal_guid"))
+						Expect(columns["apps"]).NotTo(ContainElement("terminal_id"))
+
+						Expect(columns["spaces"]).To(ContainElement("terminal_guid"))
+						Expect(columns["spaces"]).NotTo(ContainElement("terminal_id"))
+
+						Expect(columns["ip_ranges"]).To(ContainElement("terminal_guid"))
+						Expect(columns["ip_ranges"]).NotTo(ContainElement("terminal_id"))
+
+						Expect(columns["destination_metadatas"]).To(ContainElement("terminal_guid"))
+						Expect(columns["destination_metadatas"]).NotTo(ContainElement("terminal_id"))
+
+						Expect(columns["egress_policies"]).To(ContainElement("source_guid"))
+						Expect(columns["egress_policies"]).NotTo(ContainElement("source_id"))
+
+						Expect(columns["egress_policies"]).To(ContainElement("destination_guid"))
+						Expect(columns["egress_policies"]).NotTo(ContainElement("destination_id"))
+					})
+				})
+			})
+
+			// Context("postgres", func() {
+			// 	BeforeEach(func() {
+			// 		if realDb.DriverName() != "postgres" {
+			// 			Skip("skipping postgres tests")
+			// 		}
+			// 	})
+
+			// 	It("should migrate", func() {
+			// 		By("performing migration")
+			// 		numMigrations, err := migrator.PerformMigrations(realDb.DriverName(), realDb, 71)
+			// 		Expect(err).NotTo(HaveOccurred())
+			// 		Expect(numMigrations).To(Equal(71))
+
+			// 		rows, err := realDb.Query(helpers.RebindForSQLDialect(`
+			// 				select COLUMN_NAME
+			// 				from INFORMATION_SCHEMA.COLUMNS t1
+			// 				where TABLE_NAME IN'spaces'
+			// 			`, realDb.DriverName()))
+			// 		Expect(err).NotTo(HaveOccurred())
+
+			// 		By("verifying the terminal_id column exists", func() {
+			// 			var columns []string
+			// 			defer rows.Close()
+			// 			for rows.Next() {
+			// 				var columnName string
+			// 				Expect(rows.Scan(&columnName)).To(Succeed())
+			// 				columns = append(columns, columnName)
+			// 			}
+			// 			Expect(columns).To(ContainElement("terminal_id"))
+			// 			Expect(columns).To(ContainElement("space_guid"))
+			// 		})
+			// 	})
+			// })
 		})
 
 		Context("when migrating in parallel", func() {
