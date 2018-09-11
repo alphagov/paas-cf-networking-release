@@ -31,7 +31,7 @@ type EgressSource struct {
 }
 
 type EgressDestination struct {
-	GUID        string    `json:"guid,omitempty"`
+	GUID        string    `json:"id,omitempty"`
 	Name        string    `json:"name,omitempty"`
 	Description string    `json:"description,omitempty"`
 	Protocol    string    `json:"protocol"`

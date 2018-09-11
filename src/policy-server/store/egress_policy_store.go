@@ -35,6 +35,15 @@ type EgressPolicyStore struct {
 	Conn             Database
 }
 
+func (e *EgressPolicyStore) Create(policies []EgressPolicy) error {
+	tx, err := e.Conn.Beginx()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %s", err)
+	}
+
+	return e.CreateWithTx(tx, policies)
+}
+
 func (e *EgressPolicyStore) CreateWithTx(tx db.Transaction, policies []EgressPolicy) error {
 	for _, policy := range policies {
 
@@ -86,33 +95,7 @@ func (e *EgressPolicyStore) CreateWithTx(tx db.Transaction, policies []EgressPol
 			}
 		}
 
-		destinationTerminalGUID, err := e.TerminalsRepo.Create(tx)
-		if err != nil {
-			return fmt.Errorf("failed to create destination terminal: %s", err)
-		}
-
-		var startPort, endPort int64
-		if len(policy.Destination.Ports) > 0 {
-			startPort = int64(policy.Destination.Ports[0].Start)
-			endPort = int64(policy.Destination.Ports[0].End)
-		}
-
-		_, err = e.EgressPolicyRepo.CreateIPRange(
-			tx,
-			destinationTerminalGUID,
-			policy.Destination.IPRanges[0].Start,
-			policy.Destination.IPRanges[0].End,
-			policy.Destination.Protocol,
-			startPort,
-			endPort,
-			int64(policy.Destination.ICMPType),
-			int64(policy.Destination.ICMPCode),
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create ip range: %s", err)
-		}
-
-		_, err = e.EgressPolicyRepo.CreateEgressPolicy(tx, sourceTerminalGUID, destinationTerminalGUID)
+		_, err = e.EgressPolicyRepo.CreateEgressPolicy(tx, sourceTerminalGUID, policy.Destination.GUID)
 		if err != nil {
 			return fmt.Errorf("failed to create egress policy: %s", err)
 		}
