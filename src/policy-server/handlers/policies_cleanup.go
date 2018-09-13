@@ -23,16 +23,16 @@ type errorResponse interface {
 }
 
 type PoliciesCleanup struct {
-	Mapper        api.PolicyMapper
-	PolicyCleaner policyCleaner
-	ErrorResponse errorResponse
+	PolicyCollectionWriter api.PolicyCollectionWriter
+	PolicyCleaner          policyCleaner
+	ErrorResponse          errorResponse
 }
 
-func NewPoliciesCleanup(mapper api.PolicyMapper, policyCleaner policyCleaner, errorResponse errorResponse) *PoliciesCleanup {
+func NewPoliciesCleanup(writer api.PolicyCollectionWriter, policyCleaner policyCleaner, errorResponse errorResponse) *PoliciesCleanup {
 	return &PoliciesCleanup{
-		Mapper:        mapper,
-		PolicyCleaner: policyCleaner,
-		ErrorResponse: errorResponse,
+		PolicyCollectionWriter: writer,
+		PolicyCleaner:          policyCleaner,
+		ErrorResponse:          errorResponse,
 	}
 }
 
@@ -53,7 +53,7 @@ func (h *PoliciesCleanup) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		policies[i].Destination.Tag = ""
 	}
 
-	bytes, err := h.Mapper.AsBytes(policies, policyCollection.EgressPolicies)
+	bytes, err := h.PolicyCollectionWriter.AsBytes(policies, policyCollection.EgressPolicies)
 	if err != nil {
 		h.ErrorResponse.InternalServerError(logger, w, err, "map policy as bytes failed")
 		return

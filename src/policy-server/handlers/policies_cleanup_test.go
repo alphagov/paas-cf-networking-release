@@ -19,15 +19,15 @@ import (
 
 var _ = Describe("PoliciesCleanup", func() {
 	var (
-		request           *http.Request
-		handler           *handlers.PoliciesCleanup
-		resp              *httptest.ResponseRecorder
-		logger            *lagertest.TestLogger
-		expectedLogger    lager.Logger
-		fakePolicyCleaner *fakes.PolicyCleaner
-		fakeMapper        *apifakes.PolicyMapper
-		fakeErrorResponse *fakes.ErrorResponse
-		policies          store.PolicyCollection
+		request                    *http.Request
+		handler                    *handlers.PoliciesCleanup
+		resp                       *httptest.ResponseRecorder
+		logger                     *lagertest.TestLogger
+		expectedLogger             lager.Logger
+		fakePolicyCleaner          *fakes.PolicyCleaner
+		fakePolicyCollectionWriter *apifakes.PolicyCollectionWriter
+		fakeErrorResponse          *fakes.ErrorResponse
+		policies                   store.PolicyCollection
 	)
 
 	BeforeEach(func() {
@@ -53,18 +53,18 @@ var _ = Describe("PoliciesCleanup", func() {
 		expectedLogger.RegisterSink(testSink)
 		expectedLogger.RegisterSink(lager.NewWriterSink(GinkgoWriter, lager.DEBUG))
 
-		fakeMapper = &apifakes.PolicyMapper{}
+		fakePolicyCollectionWriter = &apifakes.PolicyCollectionWriter{}
 		fakePolicyCleaner = &fakes.PolicyCleaner{}
 		fakeErrorResponse = &fakes.ErrorResponse{}
 
 		handler = &handlers.PoliciesCleanup{
-			Mapper:        fakeMapper,
-			PolicyCleaner: fakePolicyCleaner,
-			ErrorResponse: fakeErrorResponse,
+			PolicyCollectionWriter: fakePolicyCollectionWriter,
+			PolicyCleaner:          fakePolicyCleaner,
+			ErrorResponse:          fakeErrorResponse,
 		}
 
 		fakePolicyCleaner.DeleteStalePoliciesReturns(policies, nil)
-		fakeMapper.AsBytesReturns([]byte("some-bytes"), nil)
+		fakePolicyCollectionWriter.AsBytesReturns([]byte("some-bytes"), nil)
 		resp = httptest.NewRecorder()
 		request, _ = http.NewRequest("POST", "/networking/v0/external/policies/cleanup", nil)
 	})
@@ -73,12 +73,12 @@ var _ = Describe("PoliciesCleanup", func() {
 		MakeRequestWithLogger(handler.ServeHTTP, resp, request, logger)
 
 		Expect(fakePolicyCleaner.DeleteStalePoliciesCallCount()).To(Equal(1))
-		Expect(fakeMapper.AsBytesCallCount()).To(Equal(1))
+		Expect(fakePolicyCollectionWriter.AsBytesCallCount()).To(Equal(1))
 
-		policyArg, egressPolicyArg := fakeMapper.AsBytesArgsForCall(0)
+		policiesArg, egressPoliciesArg := fakePolicyCollectionWriter.AsBytesArgsForCall(0)
 
-		Expect(policyArg).To(Equal(policies.Policies))
-		Expect(egressPolicyArg).To(Equal(policies.EgressPolicies))
+		Expect(policiesArg).To(Equal(policies.Policies))
+		Expect(egressPoliciesArg).To(Equal(policies.EgressPolicies))
 
 		Expect(resp.Code).To(Equal(http.StatusOK))
 		Expect(resp.Body.String()).To(Equal(`some-bytes`))
@@ -112,7 +112,7 @@ var _ = Describe("PoliciesCleanup", func() {
 
 	Context("When mapping the policies to bytes", func() {
 		BeforeEach(func() {
-			fakeMapper.AsBytesReturns(nil, errors.New("potato"))
+			fakePolicyCollectionWriter.AsBytesReturns(nil, errors.New("potato"))
 		})
 
 		It("calls the internal server error handler", func() {

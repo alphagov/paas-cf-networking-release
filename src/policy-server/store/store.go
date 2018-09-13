@@ -19,8 +19,10 @@ type Migrator interface {
 
 //go:generate counterfeiter -o fakes/store.go --fake-name Store . Store
 type Store interface {
+	Create([]Policy) error
 	CreateWithTx(db.Transaction, []Policy) error
 	All() ([]Policy, error)
+	Delete([]Policy) error
 	DeleteWithTx(db.Transaction, []Policy) error
 	ByGuids([]string, []string, bool) ([]Policy, error)
 	CheckDatabase() error
@@ -56,6 +58,18 @@ func New(dbConnectionPool Database, g GroupRepo, d DestinationRepo, p PolicyRepo
 		policy:      p,
 		tagLength:   tl,
 	}
+}
+
+// TODO
+func (s *store) Create(policies []Policy) error {
+	panic("not implemented")
+	return nil
+}
+
+// TODO
+func (s *store) Delete(policies []Policy) error {
+	panic("not implemented")
+	return nil
 }
 
 func (s *store) CheckDatabase() error {

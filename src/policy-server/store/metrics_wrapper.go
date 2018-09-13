@@ -17,6 +17,16 @@ type MetricsWrapper struct {
 	MetricsSender metricsSender
 }
 
+func (mw *MetricsWrapper) Create(policies []Policy) error {
+	panic("not implemented")
+	return nil
+}
+
+func (mw *MetricsWrapper) Delete(policies []Policy) error {
+	panic("not implemented")
+	return nil
+}
+
 func (mw *MetricsWrapper) CreateWithTx(tx db.Transaction, policies []Policy) error {
 	startTime := time.Now()
 	err := mw.Store.CreateWithTx(tx, policies)

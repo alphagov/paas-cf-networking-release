@@ -5,6 +5,14 @@ import (
 	"time"
 )
 
+//go:generate counterfeiter -o fakes/egress_policy_store.go --fake-name EgressPolicyStore . egressPolicyStore
+type egressPolicyStore interface {
+	CreateWithTx(db.Transaction, []EgressPolicy) error
+	DeleteWithTx(db.Transaction, []EgressPolicy) error
+	All() ([]EgressPolicy, error)
+	ByGuids(srcGuids []string) ([]EgressPolicy, error)
+}
+
 type EgressPolicyMetricsWrapper struct {
 	Store         egressPolicyStore
 	MetricsSender metricsSender

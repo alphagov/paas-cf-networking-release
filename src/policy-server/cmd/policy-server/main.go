@@ -118,13 +118,13 @@ func main() {
 	terminalsTable := &store.TerminalsTable{
 		Guids: &store.GuidGenerator{},
 	}
-	egressDataStore := &store.EgressPolicyStore{
-		EgressPolicyRepo: &store.EgressPolicyTable{
-			Conn:  connectionPool,
-			Guids: &store.GuidGenerator{},
-		},
-		TerminalsRepo: terminalsTable,
-	}
+	// egressDataStore := &store.EgressPolicyStore{
+	// 	EgressPolicyRepo: &store.EgressPolicyTable{
+	// 		Conn:  connectionPool,
+	// 		Guids: &store.GuidGenerator{},
+	// 	},
+	// 	TerminalsRepo: terminalsTable,
+	// }
 
 	dataStore := store.New(
 		connectionPool,
@@ -179,22 +179,22 @@ func main() {
 		CCClient:  ccClient,
 	}
 
-	payloadValidator := &api.PayloadValidator{PolicyValidator: &api.Validator{}, EgressPolicyValidator: egressValidator}
+	payloadValidator := &api.PayloadValidator{PolicyValidator: &api.Validator{}}
 	policyMapperV0 := api_v0.NewMapper(marshal.UnmarshalFunc(json.Unmarshal), marshal.MarshalFunc(json.Marshal), &api_v0.Validator{})
 	policyMapperV1 := api.NewMapper(marshal.UnmarshalFunc(json.Unmarshal), marshal.MarshalFunc(json.Marshal), payloadValidator)
 
-	createPolicyHandlerV1 := handlers.NewPoliciesCreate(wrappedPolicyCollectionStore, policyMapperV1,
+	createPolicyHandlerV1 := handlers.NewPoliciesCreate(wrappedStore, policyMapperV1,
 		policyGuard, quotaGuard, errorResponse)
-	createPolicyHandlerV0 := handlers.NewPoliciesCreate(wrappedPolicyCollectionStore, policyMapperV0,
+	createPolicyHandlerV0 := handlers.NewPoliciesCreate(wrappedStore, policyMapperV0,
 		policyGuard, quotaGuard, errorResponse)
 
-	deletePolicyHandlerV1 := handlers.NewPoliciesDelete(wrappedPolicyCollectionStore, policyMapperV1,
+	deletePolicyHandlerV1 := handlers.NewPoliciesDelete(wrappedStore, policyMapperV1,
 		policyGuard, errorResponse)
-	deletePolicyHandlerV0 := handlers.NewPoliciesDelete(wrappedPolicyCollectionStore, policyMapperV0,
+	deletePolicyHandlerV0 := handlers.NewPoliciesDelete(wrappedStore, policyMapperV0,
 		policyGuard, errorResponse)
 
-	policiesIndexHandlerV1 := handlers.NewPoliciesIndex(wrappedStore, egressDataStore, policyMapperV1, policyFilter, policyGuard, errorResponse)
-	policiesIndexHandlerV0 := handlers.NewPoliciesIndex(wrappedStore, egressDataStore, policyMapperV0, policyFilter, policyGuard, errorResponse)
+	policiesIndexHandlerV1 := handlers.NewPoliciesIndex(wrappedStore, policyMapperV1, policyFilter, policyGuard, errorResponse)
+	policiesIndexHandlerV0 := handlers.NewPoliciesIndex(wrappedStore, policyMapperV0, policyFilter, policyGuard, errorResponse)
 
 	egressDestinationMapper := &api.EgressDestinationMapper{
 		Marshaler: marshal.MarshalFunc(json.Marshal),
