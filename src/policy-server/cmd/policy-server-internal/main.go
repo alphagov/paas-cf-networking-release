@@ -12,7 +12,6 @@ import (
 
 	"policy-server/adapter"
 	"policy-server/api"
-	"policy-server/api/api_v0_internal"
 	"policy-server/config"
 	"policy-server/handlers"
 	"policy-server/store"
@@ -62,7 +61,7 @@ func main() {
 		conf.Database,
 		conf.MaxOpenConnections,
 		conf.MaxIdleConnections,
-		time.Duration(conf.MaxConnectionsLifetimeSeconds) * time.Second,
+		time.Duration(conf.MaxConnectionsLifetimeSeconds)*time.Second,
 		logPrefix,
 		jobPrefix,
 		logger,
@@ -103,14 +102,12 @@ func main() {
 	errorResponse := &httperror.ErrorResponse{
 		MetricsSender: metricsSender,
 	}
-	payloadValidator := &api.PayloadValidator{PolicyValidator: &api.Validator{}, EgressPolicyValidator: &api.EgressValidator{}}
-	policyMapperV0Internal := api_v0_internal.NewMapper(marshal.UnmarshalFunc(json.Unmarshal), marshal.MarshalFunc(json.Marshal))
-	policyMapperV1 := api.NewMapper(marshal.UnmarshalFunc(json.Unmarshal), marshal.MarshalFunc(json.Marshal), payloadValidator)
+	policyCollectionWriter := api.NewPolicyCollectionWriter(marshal.MarshalFunc(json.Marshal))
 
 	internalPoliciesHandlerV0 := handlers.NewPoliciesIndexInternal(logger, wrappedStore,
-		wrappedEgressStore, policyMapperV0Internal, errorResponse)
+		wrappedEgressStore, policyCollectionWriter, errorResponse)
 	internalPoliciesHandlerV1 := handlers.NewPoliciesIndexInternal(logger, wrappedStore,
-		wrappedEgressStore, policyMapperV1, errorResponse)
+		wrappedEgressStore, policyCollectionWriter, errorResponse)
 
 	createTagsHandlerV1 := &handlers.TagsCreate{
 		Store:         wrappedStore,

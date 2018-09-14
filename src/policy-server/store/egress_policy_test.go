@@ -829,10 +829,7 @@ var _ = Describe("Egress Policy Table", func() {
 					},
 				},
 			}
-			err := egressStore.CreateWithTx(tx, egressPolicies)
-			Expect(err).ToNot(HaveOccurred())
-
-			err = tx.Commit()
+			err := egressStore.Create(egressPolicies)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -950,10 +947,7 @@ var _ = Describe("Egress Policy Table", func() {
 					},
 				},
 			}
-			err := egressStore.CreateWithTx(tx, egressPolicies)
-			Expect(err).ToNot(HaveOccurred())
-
-			err = tx.Commit()
+			err := egressStore.Create(egressPolicies)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
