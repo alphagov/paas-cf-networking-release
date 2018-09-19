@@ -717,13 +717,6 @@ jobs:
         cf-networking-release: cf-networking-dev
         deployments-repo: cf-networking-deployments
         silk-release: silk-dev
-    - task: upload-local-capi-release
-      file: cf-networking-release-ci/ci/tasks/upload-local-release.yml
-      input_mapping:
-        bbl-state: cf-networking-deployments
-        local-release: capi-ci-passed
-      params:
-        BBL_STATE_DIR: environments/mitre/
     - task: upload-local-silk-release
       file: cf-networking-release-ci/ci/tasks/upload-local-release.yml
       input_mapping:

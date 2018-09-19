@@ -42,6 +42,18 @@ type EgressDestinationRepo struct {
 		result1 int64
 		result2 error
 	}
+	DeleteIPRangeStub        func(tx db.Transaction, destinationGUID string) error
+	deleteIPRangeMutex       sync.RWMutex
+	deleteIPRangeArgsForCall []struct {
+		tx              db.Transaction
+		destinationGUID string
+	}
+	deleteIPRangeReturns struct {
+		result1 error
+	}
+	deleteIPRangeReturnsOnCall map[int]struct {
+		result1 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -156,6 +168,55 @@ func (fake *EgressDestinationRepo) CreateIPRangeReturnsOnCall(i int, result1 int
 	}{result1, result2}
 }
 
+func (fake *EgressDestinationRepo) DeleteIPRange(tx db.Transaction, destinationGUID string) error {
+	fake.deleteIPRangeMutex.Lock()
+	ret, specificReturn := fake.deleteIPRangeReturnsOnCall[len(fake.deleteIPRangeArgsForCall)]
+	fake.deleteIPRangeArgsForCall = append(fake.deleteIPRangeArgsForCall, struct {
+		tx              db.Transaction
+		destinationGUID string
+	}{tx, destinationGUID})
+	fake.recordInvocation("DeleteIPRange", []interface{}{tx, destinationGUID})
+	fake.deleteIPRangeMutex.Unlock()
+	if fake.DeleteIPRangeStub != nil {
+		return fake.DeleteIPRangeStub(tx, destinationGUID)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fake.deleteIPRangeReturns.result1
+}
+
+func (fake *EgressDestinationRepo) DeleteIPRangeCallCount() int {
+	fake.deleteIPRangeMutex.RLock()
+	defer fake.deleteIPRangeMutex.RUnlock()
+	return len(fake.deleteIPRangeArgsForCall)
+}
+
+func (fake *EgressDestinationRepo) DeleteIPRangeArgsForCall(i int) (db.Transaction, string) {
+	fake.deleteIPRangeMutex.RLock()
+	defer fake.deleteIPRangeMutex.RUnlock()
+	return fake.deleteIPRangeArgsForCall[i].tx, fake.deleteIPRangeArgsForCall[i].destinationGUID
+}
+
+func (fake *EgressDestinationRepo) DeleteIPRangeReturns(result1 error) {
+	fake.DeleteIPRangeStub = nil
+	fake.deleteIPRangeReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *EgressDestinationRepo) DeleteIPRangeReturnsOnCall(i int, result1 error) {
+	fake.DeleteIPRangeStub = nil
+	if fake.deleteIPRangeReturnsOnCall == nil {
+		fake.deleteIPRangeReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.deleteIPRangeReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *EgressDestinationRepo) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -163,6 +224,8 @@ func (fake *EgressDestinationRepo) Invocations() map[string][][]interface{} {
 	defer fake.allMutex.RUnlock()
 	fake.createIPRangeMutex.RLock()
 	defer fake.createIPRangeMutex.RUnlock()
+	fake.deleteIPRangeMutex.RLock()
+	defer fake.deleteIPRangeMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

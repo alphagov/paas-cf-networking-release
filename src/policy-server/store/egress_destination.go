@@ -3,6 +3,7 @@ package store
 import (
 	"fmt"
 	"policy-server/db"
+	"database/sql"
 )
 
 type EgressDestinationTable struct{}
@@ -55,6 +56,64 @@ func (e *EgressDestinationTable) CreateIPRange(tx db.Transaction, destinationTer
 	}
 
 	return -1, fmt.Errorf("unknown driver: %s", driverName)
+}
+
+func (e *EgressDestinationTable) DeleteIPRange(tx db.Transaction, destinationGUID string) error {
+	_, err := tx.Exec(tx.Rebind(`DELETE FROM ip_ranges WHERE ip_ranges.terminal_guid = ?`), destinationGUID)
+
+	return err
+}
+
+func (e *EgressDestinationTable) GetIPRange(tx db.Transaction, destinationGUID string) (EgressDestination, error) {
+	var (
+		startPort, endPort, icmpType, icmpCode                    int
+		terminalGUID, name, description, protocol, startIP, endIP *string
+		ports                                                     []Ports
+	)
+
+	err := tx.QueryRow(tx.Rebind(`
+	SELECT
+		ip_ranges.protocol,
+		ip_ranges.start_ip,
+		ip_ranges.end_ip,
+		ip_ranges.start_port,
+		ip_ranges.end_port,
+		ip_ranges.icmp_type,
+		ip_ranges.icmp_code,
+		ip_ranges.terminal_guid,
+		COALESCE(d_m.name, ''),
+		COALESCE(d_m.description, '')
+	FROM ip_ranges
+    LEFT OUTER JOIN destination_metadatas AS d_m
+	  ON d_m.terminal_guid = ip_ranges.terminal_guid
+	WHERE ip_ranges.terminal_guid = ?;`),
+		destinationGUID,
+	).Scan(&protocol, &startIP, &endIP, &startPort, &endPort, &icmpType, &icmpCode, &terminalGUID, &name, &description)
+
+	if err != nil {
+		if (err == sql.ErrNoRows) {
+			return EgressDestination{}, nil
+		}
+
+		panic(err)
+	}
+
+	if startPort != 0 && endPort != 0 {
+		ports = []Ports{{Start: startPort, End: endPort}}
+	}
+
+	dest := EgressDestination{
+		GUID:        *terminalGUID,
+		Name:        *name,
+		Description: *description,
+		Protocol:    *protocol,
+		Ports:       ports,
+		IPRanges:    []IPRange{{Start: *startIP, End: *endIP}},
+		ICMPType:    icmpType,
+		ICMPCode:    icmpCode,
+	}
+
+	return dest, err
 }
 
 func (e *EgressDestinationTable) All(tx db.Transaction) ([]EgressDestination, error) {

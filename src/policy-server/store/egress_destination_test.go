@@ -88,4 +88,65 @@ var _ = Describe("EgressDestination", func() {
 			Expect(destinations[0].ICMPCode).To(Equal(-1))
 		})
 	})
+
+	FContext("GetIpRange by GUID", func() {
+		It("return IpRange for given GUID", func () {
+			tx, err := realDb.Beginx()
+			Expect(err).NotTo(HaveOccurred())
+
+			destinations, err := egressDestinationTable.All(tx)
+			Expect(err).NotTo(HaveOccurred())
+
+			destination, err := egressDestinationTable.GetIPRange(tx ,destinations[0].GUID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(destination.GUID).To(Equal(terminalId))
+			Expect(destination.Name).To(Equal(""))
+			Expect(destination.Description).To(Equal(""))
+			Expect(destination.Protocol).To(Equal("tcp"))
+			Expect(destination.IPRanges).To(Equal([]store.IPRange{{Start: "1.1.1.1", End: "2.2.2.2"}}))
+			Expect(destination.Ports).To(Equal([]store.Ports{{Start: 8080, End: 8081}}))
+			Expect(destination.ICMPType).To(Equal(-1))
+			Expect(destination.ICMPCode).To(Equal(-1))
+		})
+
+		It("does not error for unknown GUID", func(){
+			tx, err := realDb.Beginx()
+			Expect(err).NotTo(HaveOccurred())
+
+			destination, err := egressDestinationTable.GetIPRange(tx ,"dfsfsdfsfsdf4534534535345")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(destination).To(Equal(store.EgressDestination{}))
+		})
+	})
+
+	Context("DeleteIpRange", func() {
+		Context("when the destination does not exist", func() {
+			It("does not error", func() {
+				tx, err := realDb.Beginx()
+				Expect(err).NotTo(HaveOccurred())
+
+				err = egressDestinationTable.DeleteIPRange(tx, "dfsfsdfsfsdf4534534535345")
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		Context("when the destination does exist", func() {
+			It("deletes the destination", func() {
+				tx, err := realDb.Beginx()
+				Expect(err).NotTo(HaveOccurred())
+
+				destinations, err := egressDestinationTable.All(tx)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = egressDestinationTable.DeleteIPRange(tx ,destinations[0].GUID)
+				Expect(err).NotTo(HaveOccurred())
+
+				destinations, err = egressDestinationTable.All(tx)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(destinations)).To(Equal(0))
+
+
+			})
+		})
+	})
 })

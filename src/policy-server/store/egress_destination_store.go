@@ -9,6 +9,7 @@ import (
 type egressDestinationRepo interface {
 	All(tx db.Transaction) ([]EgressDestination, error)
 	CreateIPRange(tx db.Transaction, destinationTerminalGUID, startIP, endIP, protocol string, startPort, endPort, icmpType, icmpCode int64) (int64, error)
+	DeleteIPRange(tx db.Transaction, destinationGUID string) error
 }
 
 //go:generate counterfeiter -o fakes/destination_metadata_repo.go --fake-name DestinationMetadataRepo . destinationMetadataRepo
@@ -85,4 +86,15 @@ func (e *EgressDestinationStore) Create(egressDestinations []EgressDestination) 
 	}
 
 	return results, nil
+}
+
+func (e *EgressDestinationStore) Delete(destinationGUID string) (EgressDestination, error) {
+	tx, err := e.Conn.Beginx()
+	if err != nil {
+		//return EgressDestination{}, fmt.Errorf("egress destination store delete transaction: %s", err)
+	}
+
+	err = e.EgressDestinationRepo.DeleteIPRange(tx, destinationGUID)
+
+	return EgressDestination{}, nil
 }

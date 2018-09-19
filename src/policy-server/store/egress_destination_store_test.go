@@ -26,7 +26,7 @@ var _ = Describe("EgressDestinationStore", func() {
 		egressDestinationTable  *store.EgressDestinationTable
 	)
 
-	Describe("using an actual db", func() {
+	Context("using an actual db", func() {
 		var (
 			dbConf dbHelper.Config
 			realDb *db.ConnWrapper
@@ -89,7 +89,7 @@ var _ = Describe("EgressDestinationStore", func() {
 				}
 			})
 
-			It("creates and lists policies to/from the database", func() {
+			It("creates, lists and deletes destinations to/from the database", func() {
 				createdDestinations, err := egressDestinationsStore.Create(toBeCreatedDestinations)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(createdDestinations).To(HaveLen(2))
@@ -127,6 +127,21 @@ var _ = Describe("EgressDestinationStore", func() {
 				Expect(destinations[1].IPRanges).To(Equal([]store.IPRange{{Start: "1.2.2.4", End: "1.2.2.5"}}))
 				Expect(destinations[1].ICMPType).To(Equal(12))
 				Expect(destinations[1].ICMPCode).To(Equal(13))
+
+
+
+
+				destination, err := egressDestinationsStore.Delete(destinations[0].GUID)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(destination.GUID).To(Equal(createdDestinations[0].GUID))
+				Expect(destination.Name).To(Equal("dest-1"))
+				Expect(destination.Description).To(Equal("desc-1"))
+				Expect(destination.Protocol).To(Equal("tcp"))
+				Expect(destination.IPRanges).To(Equal([]store.IPRange{{Start: "1.2.2.2", End: "1.2.2.3"}}))
+				Expect(destination.Ports).To(Equal([]store.Ports{{Start: 8080, End: 8081}}))
+
+
+
 			})
 		})
 	})
