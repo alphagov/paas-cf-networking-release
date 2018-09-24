@@ -6,19 +6,26 @@ import (
 
 	"encoding/json"
 	"policy-server/api"
+	"policy-server/api/fakes"
 	"policy-server/store"
 
 	"code.cloudfoundry.org/cf-networking-helpers/marshal"
+	"errors"
 )
 
 var _ = Describe("ApiEgressDestinationMapper", func() {
 	var (
 		mapper *api.EgressDestinationMapper
+		fakeValidator *fakes.PayloadValidator
 	)
 
 	BeforeEach(func() {
+		fakeValidator = &fakes.PayloadValidator{}
+		fakeValidator.ValidateEgressDestinationsPayloadReturns(nil)
+
 		mapper = &api.EgressDestinationMapper{
 			Marshaler: marshal.MarshalFunc(json.Marshal),
+			PayloadValidator: fakeValidator,
 		}
 	})
 
@@ -122,6 +129,7 @@ var _ = Describe("ApiEgressDestinationMapper", func() {
 						}
 					]
 				}`)
+
 		})
 
 		It("unmarshals egress destinations from json", func() {
@@ -165,6 +173,22 @@ var _ = Describe("ApiEgressDestinationMapper", func() {
 					},
 				}),
 			)
+		})
+
+		Context("when unmarshaling fails", func(){
+			//TODO
+		})
+
+		Context("when there is a validation error", func(){
+			BeforeEach(func(){
+				fakeValidator.ValidateEgressDestinationsPayloadReturns(errors.New("banana"))
+			})
+
+			It("returns an error", func(){
+				_, err := mapper.AsEgressDestinations(expectedOutputBytes)
+				Expect(err).To(MatchError("validate destinations: banana"))
+			})
+
 		})
 	})
 })
