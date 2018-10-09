@@ -1,6 +1,7 @@
 package store
 
 import (
+	"errors"
 	"fmt"
 
 	"code.cloudfoundry.org/cf-networking-helpers/db"
@@ -47,7 +48,7 @@ func (d *DestinationMetadataTable) Create(tx db.Transaction, terminalGUID, name,
 }
 
 func (d *DestinationMetadataTable) Update(tx db.Transaction, terminalGUID, name, description string) error {
-	_, err := tx.Exec(tx.Rebind(`
+	result, err := tx.Exec(tx.Rebind(`
 		UPDATE destination_metadatas
 		SET name = ?, description = ?
 		WHERE terminal_guid = ?
@@ -56,7 +57,20 @@ func (d *DestinationMetadataTable) Update(tx db.Transaction, terminalGUID, name,
 		description,
 		terminalGUID,
 	)
-	return err
+
+	if err != nil {
+		return err
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return errors.New("destination GUID not found")
+	}
+
+	return nil
 }
 
 func (d *DestinationMetadataTable) Delete(tx db.Transaction, guid string) error {

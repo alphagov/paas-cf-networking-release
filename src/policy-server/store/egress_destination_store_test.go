@@ -183,6 +183,12 @@ var _ = Describe("EgressDestinationStore", func() {
 				Expect(updatedDestinations).To(HaveLen(2))
 				Expect(updatedDestinations).To(Equal([]store.EgressDestination{destinationToUpdate1, destinationToUpdate2}))
 
+				By("updating with an error")
+				destinationToUpdate2.GUID = "missing"
+				updatedDestinationsWithNoGUID, errWithNoGUID := egressDestinationsStore.Update([]store.EgressDestination{destinationToUpdate1, destinationToUpdate2})
+				Expect(errWithNoGUID).To(MatchError("egress destination store update metadata: destination GUID not found"))
+				Expect(updatedDestinationsWithNoGUID).To(HaveLen(0))
+
 				By("listing updated destinations to ensure the updates were persisted")
 				destinations, err = egressDestinationsStore.All()
 				Expect(err).NotTo(HaveOccurred())
@@ -202,7 +208,7 @@ var _ = Describe("EgressDestinationStore", func() {
 				Expect(destinations).To(HaveLen(0))
 			})
 
-			Context("when creating the destination metadata returns duplicate name error", func() {
+			Context("when destination metadata returns duplicate name error", func() {
 				BeforeEach(func() {
 					toBeCreatedDestinations = []store.EgressDestination{
 						{
@@ -219,9 +225,18 @@ var _ = Describe("EgressDestinationStore", func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				It("returns a specific error when DB detects a duplicate", func() {
+				It("returns a specific error when DB detects a duplicate on create", func() {
 					_, err := egressDestinationsStore.Create(toBeCreatedDestinations)
 					Expect(err).To(MatchError("egress destination store create destination metadata: duplicate name error: entry with name 'dupe' already exists"))
+				})
+
+				It("returns a specific error when DB detects a duplicate on update", func() {
+					toBeCreatedDestinations[0].Name = "dupe2"
+					newlyCreatedDestinations, err := egressDestinationsStore.Create(toBeCreatedDestinations)
+					Expect(err).NotTo(HaveOccurred())
+					newlyCreatedDestinations[0].Name = "dupe"
+					_, err = egressDestinationsStore.Update(newlyCreatedDestinations)
+					Expect(err).To(MatchError("egress destination store update destination metadata: duplicate name error: entry with name 'dupe' already exists"))
 				})
 			})
 

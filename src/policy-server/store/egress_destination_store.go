@@ -101,13 +101,14 @@ func (e *EgressDestinationStore) Update(egressDestinations []EgressDestination) 
 		return nil, fmt.Errorf("egress destination store update transaction: %s", err)
 	}
 
-	//TODO ensure all of the destinations exist i.e. GetByGUIDs returns a slice of len egressDestinations
-
 	for _, egressDestination := range egressDestinations {
 		//TODO ensure the metadata exists, legacy destinations did not have them
 		err := e.DestinationMetadataRepo.Update(tx, egressDestination.GUID, egressDestination.Name, egressDestination.Description)
 		if err != nil {
 			tx.Rollback()
+			if isDuplicateError(err) {
+				return []EgressDestination{}, fmt.Errorf("egress destination store update destination metadata: duplicate name error: entry with name '%s' already exists", egressDestination.Name)
+			}
 			return nil, fmt.Errorf("egress destination store update metadata: %s", err)
 		}
 
@@ -160,7 +161,7 @@ func (e *EgressDestinationStore) Create(egressDestinations []EgressDestination) 
 		_, err = e.DestinationMetadataRepo.Create(tx, destinationTerminalGUID, egressDestination.Name, egressDestination.Description)
 		if err != nil {
 			tx.Rollback()
-			if isDuplicateError(err, egressDestination.Name) {
+			if isDuplicateError(err) {
 				return []EgressDestination{}, fmt.Errorf("egress destination store create destination metadata: duplicate name error: entry with name '%s' already exists", egressDestination.Name)
 			}
 			return []EgressDestination{}, fmt.Errorf("egress destination store create destination metadata: %s", err)
@@ -201,7 +202,7 @@ func (e *EgressDestinationStore) Create(egressDestinations []EgressDestination) 
 	return results, nil
 }
 
-func isDuplicateError(err error, name string) bool {
+func isDuplicateError(err error) bool {
 	switch typedErr := err.(type) {
 	case *pq.Error:
 		if typedErr.Code == "23505" {

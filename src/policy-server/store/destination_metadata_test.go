@@ -10,6 +10,17 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+type fakeSqlResult struct {
+}
+
+func (r *fakeSqlResult) RowsAffected() (int64, error) {
+	return 0, errors.New("not right now")
+}
+
+func (r *fakeSqlResult) LastInsertId() (int64, error) {
+	return 0, nil
+}
+
 var _ = Describe("DestinationMetadata", func() {
 	var (
 		tx                       *dbfakes.Transaction
@@ -48,5 +59,18 @@ var _ = Describe("DestinationMetadata", func() {
 		//TODO do it
 		It("should create the destination metadata row if one does not exist. Destinations created in the 'inline destinations' implementation do not have an associated metadata row", func() {
 		})
+
+		It("passes an error from RowsAffected if RowsAffected fails", func() {
+			tx.ExecReturns(&fakeSqlResult{}, nil)
+			err := destinationMetadataTable.Update(tx, "term-guid", "name", "desc")
+			Expect(err).To(MatchError("not right now"))
+		})
+
+		It("passes an error from Exec if Exec fails", func() {
+			tx.ExecReturns(&fakeSqlResult{}, errors.New("bigger error"))
+			err := destinationMetadataTable.Update(tx, "term-guid", "name", "desc")
+			Expect(err).To(MatchError("bigger error"))
+		})
+
 	})
 })
