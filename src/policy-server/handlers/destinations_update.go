@@ -52,6 +52,10 @@ func (d *DestinationsUpdate) ServeHTTP(w http.ResponseWriter, req *http.Request)
 			d.ErrorResponse.BadRequest(d.Logger, w, err, fmt.Sprintf("error updating egress destination: %s", err))
 			return
 		}
+		if strings.Contains(err.Error(), "destination GUID not found") {
+			d.ErrorResponse.NotFound(d.Logger, w, err, fmt.Sprintf("error updating egress destination: %s", err))
+			return
+		}
 		d.ErrorResponse.InternalServerError(d.Logger, w, err, "error updating egress destination")
 		return
 	}
