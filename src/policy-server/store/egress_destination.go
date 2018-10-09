@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"code.cloudfoundry.org/cf-networking-helpers/db"
-	"errors"
 )
 
 type EgressDestinationTable struct{}
@@ -36,7 +35,7 @@ func (e *EgressDestinationTable) Delete(tx db.Transaction, guid string) error {
 }
 
 func (e *EgressDestinationTable) UpdateIPRange(tx db.Transaction, destinationTerminalGUID, startIP, endIP, protocol string, startPort, endPort, icmpType, icmpCode int64) error {
-	result, err := tx.Exec(tx.Rebind(`
+	_, err := tx.Exec(tx.Rebind(`
 	  UPDATE ip_ranges
 		SET protocol=?, start_ip=?, end_ip=?, start_port=?, end_port=?, icmp_type=?, icmp_code=?
 		WHERE terminal_guid=?
@@ -51,20 +50,7 @@ func (e *EgressDestinationTable) UpdateIPRange(tx db.Transaction, destinationTer
 		destinationTerminalGUID,
 	)
 
-	if err != nil {
-		return err
-	}
-
-	affected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if affected == 0 {
-		return errors.New("destination GUID not found")
-	}
-
-
-	return nil
+	return err
 }
 
 func (e *EgressDestinationTable) CreateIPRange(tx db.Transaction, destinationTerminalGUID, startIP, endIP, protocol string, startPort, endPort, icmpType, icmpCode int64) (int64, error) {

@@ -3,10 +3,11 @@ package store
 import (
 	"fmt"
 
+	"strings"
+
 	"code.cloudfoundry.org/cf-networking-helpers/db"
 	"github.com/go-sql-driver/mysql"
 	"github.com/lib/pq"
-	"strings"
 )
 
 //go:generate counterfeiter -o fakes/egress_destination_repo.go --fake-name EgressDestinationRepo . egressDestinationRepo
@@ -102,13 +103,26 @@ func (e *EgressDestinationStore) Update(egressDestinations []EgressDestination) 
 		return nil, fmt.Errorf("egress destination store update transaction: %s", err)
 	}
 
+	var guids []string
+	for _, egressDestination := range egressDestinations {
+		guids = append(guids, egressDestination.GUID)
+	}
+
+	foundDestinations, err := e.EgressDestinationRepo.GetByGUID(tx, guids...)
+	if err != nil {
+		return nil, fmt.Errorf("egress destination store update GetByGUID: %s", err)
+	}
+
+	if len(foundDestinations) != len(egressDestinations) {
+		return nil, fmt.Errorf("egress destination store update iprange: destination GUID not found")
+	}
+
 	for _, egressDestination := range egressDestinations {
 		var startPort, endPort int64
 		if len(egressDestination.Ports) > 0 {
 			startPort = int64(egressDestination.Ports[0].Start)
 			endPort = int64(egressDestination.Ports[0].End)
 		}
-
 		err = e.EgressDestinationRepo.UpdateIPRange(
 			tx,
 			egressDestination.GUID,
@@ -131,6 +145,8 @@ func (e *EgressDestinationStore) Update(egressDestinations []EgressDestination) 
 			if strings.Contains(err.Error(), "destination GUID not found") {
 				_, err = e.DestinationMetadataRepo.Create(tx, egressDestination.GUID, egressDestination.Name, egressDestination.Description)
 				if err != nil {
+					//TODO rollback
+					panic("OMG")
 					return nil, fmt.Errorf("egress destination store create missing metadata: %s", err)
 				}
 			} else {

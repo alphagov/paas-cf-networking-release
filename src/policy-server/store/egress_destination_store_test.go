@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("EgressDestinationStore", func() {
+var _ = FDescribe("EgressDestinationStore", func() {
 	var (
 		egressDestinationsStore *store.EgressDestinationStore
 		destinationMetadataRepo *store.DestinationMetadataTable
@@ -55,15 +55,13 @@ var _ = Describe("EgressDestinationStore", func() {
 			egressDestinationsStore = &store.EgressDestinationStore{
 				TerminalsRepo:           terminalsRepo,
 				DestinationMetadataRepo: destinationMetadataRepo,
-				Conn:                    realDb,
-				EgressDestinationRepo:   egressDestinationTable,
+				Conn: realDb,
+				EgressDestinationRepo: egressDestinationTable,
 			}
 		})
 
 		AfterEach(func() {
-			if realDb != nil {
-				Expect(realDb.Close()).To(Succeed())
-			}
+			Expect(realDb.Close()).To(Succeed())
 			testhelpers.RemoveDatabase(dbConf)
 		})
 
@@ -183,6 +181,12 @@ var _ = Describe("EgressDestinationStore", func() {
 				Expect(updatedDestinations).To(HaveLen(2))
 				Expect(updatedDestinations).To(Equal([]store.EgressDestination{destinationToUpdate1, destinationToUpdate2}))
 
+				By("updating with an error")
+				destinationToUpdate2.GUID = "missing"
+				updatedDestinationsWithNoGUID, errWithNoGUID := egressDestinationsStore.Update([]store.EgressDestination{destinationToUpdate1, destinationToUpdate2})
+				Expect(errWithNoGUID).To(MatchError("egress destination store update iprange: destination GUID not found"))
+				Expect(updatedDestinationsWithNoGUID).To(HaveLen(0))
+
 				By("listing updated destinations to ensure the updates were persisted")
 				destinations, err = egressDestinationsStore.All()
 				Expect(err).NotTo(HaveOccurred())
@@ -212,6 +216,13 @@ var _ = Describe("EgressDestinationStore", func() {
 							IPRanges:    []store.IPRange{{Start: "1.2.2.2", End: "1.2.2.3"}},
 							Ports:       []store.Ports{{Start: 8080, End: 8081}},
 						},
+						{
+							Name:        "dupe2",
+							Description: "dupe2",
+							Protocol:    "tcp",
+							IPRanges:    []store.IPRange{{Start: "1.2.2.2", End: "1.2.2.3"}},
+							Ports:       []store.Ports{{Start: 8080, End: 8081}},
+						},
 					}
 
 					var err error
@@ -220,16 +231,13 @@ var _ = Describe("EgressDestinationStore", func() {
 				})
 
 				It("returns a specific error when DB detects a duplicate on create", func() {
-					_, err := egressDestinationsStore.Create(toBeCreatedDestinations)
+					_, err := egressDestinationsStore.Create(toBeCreatedDestinations[:1])
 					Expect(err).To(MatchError("egress destination store create destination metadata: duplicate name error: entry with name 'dupe' already exists"))
 				})
 
-				It("returns a specific error when DB detects a duplicate on update", func() {
-					toBeCreatedDestinations[0].Name = "dupe2"
-					newlyCreatedDestinations, err := egressDestinationsStore.Create(toBeCreatedDestinations)
-					Expect(err).NotTo(HaveOccurred())
-					newlyCreatedDestinations[0].Name = "dupe"
-					_, err = egressDestinationsStore.Update(newlyCreatedDestinations)
+				It("returns a specific error when DB detects a duplicate name on update", func() {
+					createdDestinations[1].Name = "dupe"
+					_, err := egressDestinationsStore.Update(createdDestinations[1:])
 					Expect(err).To(MatchError("egress destination store update destination metadata: duplicate name error: entry with name 'dupe' already exists"))
 				})
 			})
@@ -294,7 +302,7 @@ var _ = Describe("EgressDestinationStore", func() {
 			destinationMetadataRepo = &fakes.DestinationMetadataRepo{}
 
 			egressDestinationsStore = &store.EgressDestinationStore{
-				Conn:                    mockDB,
+				Conn: mockDB,
 				EgressDestinationRepo:   egressDestinationRepo,
 				DestinationMetadataRepo: destinationMetadataRepo,
 				TerminalsRepo:           terminalsRepo,
@@ -325,14 +333,26 @@ var _ = Describe("EgressDestinationStore", func() {
 				})
 			})
 
+			Context("when getting by guid fails", func() {
+				BeforeEach(func() {
+					egressDestinationRepo.GetByGUIDReturns(nil, errors.New("something bad happened"))
+				})
+
+				It("returns the error", func() {
+					_, err := egressDestinationsStore.Update(destinationsToUpdate)
+					Expect(err).To(MatchError("egress destination store update GetByGUID: something bad happened"))
+				})
+			})
+
 			Context("when updating the destination metadata fails", func() {
 				BeforeEach(func() {
 					destinationMetadataRepo.UpdateReturns(errors.New("can't update metadata"))
+					egressDestinationRepo.GetByGUIDReturns([]store.EgressDestination{{}}, nil)
 				})
 
 				It("rolls back the transaction", func() {
 					egressDestinationsStore.Update(destinationsToUpdate)
-					Expect(tx.RollbackCallCount()).To(Equal(1))
+					Expect(tx.RollbackCallCount()).To(Equal(2)) //One for GetByGUID and one for Update
 				})
 
 				It("returns the error", func() {
@@ -344,11 +364,12 @@ var _ = Describe("EgressDestinationStore", func() {
 			Context("when updating the destination fails", func() {
 				BeforeEach(func() {
 					egressDestinationRepo.UpdateIPRangeReturns(errors.New("can't update iprange"))
+					egressDestinationRepo.GetByGUIDReturns([]store.EgressDestination{{}}, nil)
 				})
 
 				It("rolls back the transaction", func() {
 					egressDestinationsStore.Update(destinationsToUpdate)
-					Expect(tx.RollbackCallCount()).To(Equal(1))
+					Expect(tx.RollbackCallCount()).To(Equal(2))
 				})
 
 				It("returns the error", func() {
@@ -360,6 +381,7 @@ var _ = Describe("EgressDestinationStore", func() {
 			Context("when the transaction cannot be committed", func() {
 				var err error
 				BeforeEach(func() {
+					egressDestinationRepo.GetByGUIDReturns([]store.EgressDestination{{}}, nil)
 					tx.CommitReturns(errors.New("can't commit transaction"))
 					_, err = egressDestinationsStore.Update(destinationsToUpdate)
 				})
@@ -369,14 +391,14 @@ var _ = Describe("EgressDestinationStore", func() {
 				})
 
 				It("rolls back the transaction", func() {
-					Expect(tx.RollbackCallCount()).To(Equal(1))
+					Expect(tx.RollbackCallCount()).To(Equal(2))
 				})
 			})
 
 			Context("when metadata row does not exist", func() {
 				BeforeEach(func() {
 					destinationMetadataRepo.UpdateReturns(errors.New("destination GUID not found"))
-
+					egressDestinationRepo.GetByGUIDReturns([]store.EgressDestination{{}}, nil)
 				})
 
 				It("creates metadata row when IPRange row exists", func() {
