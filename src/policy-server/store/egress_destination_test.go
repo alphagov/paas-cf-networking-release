@@ -18,6 +18,28 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+type fakeSqlResultWithError struct {
+}
+
+func (r *fakeSqlResultWithError) RowsAffected() (int64, error) {
+	return 1, errors.New("not right now")
+}
+
+func (r *fakeSqlResultWithError) LastInsertId() (int64, error) {
+	return 1, nil
+}
+
+type fakeSqlResultWithZeroRowsAffected struct {
+}
+
+func (r *fakeSqlResultWithZeroRowsAffected) RowsAffected() (int64, error) {
+	return 0, nil
+}
+
+func (r *fakeSqlResultWithZeroRowsAffected) LastInsertId() (int64, error) {
+	return 0, nil
+}
+
 var _ = Describe("EgressDestination", func() {
 	Context("when using a real database", func() {
 		var (
@@ -223,6 +245,26 @@ var _ = Describe("EgressDestination", func() {
 			})
 			It("returns the error", func() {
 				Expect(egressDestinationTable.UpdateIPRange(tx, "", "", "", "", int64(3), int64(4), int64(5), int64(6))).To(MatchError("bad things happened"))
+			})
+		})
+
+		Context("update", func() {
+			It("passes an error from RowsAffected if RowsAffected fails", func() {
+				tx.ExecReturns(&fakeSqlResultWithError{}, nil)
+				err := egressDestinationTable.UpdateIPRange(tx, "", "", "", "", int64(3), int64(4), int64(5), int64(6))
+				Expect(err).To(MatchError("not right now"))
+			})
+
+			It("passes an error from Exec if Exec fails", func() {
+				tx.ExecReturns(&fakeSqlResultWithError{}, errors.New("bigger error"))
+				err := egressDestinationTable.UpdateIPRange(tx, "", "", "", "", int64(3), int64(4), int64(5), int64(6))
+				Expect(err).To(MatchError("bigger error"))
+			})
+
+			It("returns error when zero rows affected", func() {
+				tx.ExecReturns(&fakeSqlResultWithZeroRowsAffected{}, nil)
+				err := egressDestinationTable.UpdateIPRange(tx, "", "", "", "", int64(3), int64(4), int64(5), int64(6))
+				Expect(err).To(MatchError("destination GUID not found"))
 			})
 		})
 	})

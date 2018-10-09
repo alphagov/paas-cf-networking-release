@@ -6,6 +6,7 @@ import (
 	"code.cloudfoundry.org/cf-networking-helpers/db"
 	"github.com/go-sql-driver/mysql"
 	"github.com/lib/pq"
+	"strings"
 )
 
 //go:generate counterfeiter -o fakes/egress_destination_repo.go --fake-name EgressDestinationRepo . egressDestinationRepo
@@ -102,16 +103,6 @@ func (e *EgressDestinationStore) Update(egressDestinations []EgressDestination) 
 	}
 
 	for _, egressDestination := range egressDestinations {
-		//TODO ensure the metadata exists, legacy destinations did not have them
-		err := e.DestinationMetadataRepo.Update(tx, egressDestination.GUID, egressDestination.Name, egressDestination.Description)
-		if err != nil {
-			tx.Rollback()
-			if isDuplicateError(err) {
-				return []EgressDestination{}, fmt.Errorf("egress destination store update destination metadata: duplicate name error: entry with name '%s' already exists", egressDestination.Name)
-			}
-			return nil, fmt.Errorf("egress destination store update metadata: %s", err)
-		}
-
 		var startPort, endPort int64
 		if len(egressDestination.Ports) > 0 {
 			startPort = int64(egressDestination.Ports[0].Start)
@@ -132,6 +123,23 @@ func (e *EgressDestinationStore) Update(egressDestinations []EgressDestination) 
 		if err != nil {
 			tx.Rollback()
 			return nil, fmt.Errorf("egress destination store update iprange: %s", err)
+		}
+
+		err := e.DestinationMetadataRepo.Update(tx, egressDestination.GUID, egressDestination.Name, egressDestination.Description)
+
+		if err != nil {
+			if strings.Contains(err.Error(), "destination GUID not found") {
+				_, err = e.DestinationMetadataRepo.Create(tx, egressDestination.GUID, egressDestination.Name, egressDestination.Description)
+				if err != nil {
+					return nil, fmt.Errorf("egress destination store create missing metadata: %s", err)
+				}
+			} else {
+				tx.Rollback()
+				if isDuplicateError(err) {
+					return []EgressDestination{}, fmt.Errorf("egress destination store update destination metadata: duplicate name error: entry with name '%s' already exists", egressDestination.Name)
+				}
+				return nil, fmt.Errorf("egress destination store update metadata: %s", err)
+			}
 		}
 	}
 

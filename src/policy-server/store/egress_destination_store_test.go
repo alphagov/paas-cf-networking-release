@@ -183,12 +183,6 @@ var _ = Describe("EgressDestinationStore", func() {
 				Expect(updatedDestinations).To(HaveLen(2))
 				Expect(updatedDestinations).To(Equal([]store.EgressDestination{destinationToUpdate1, destinationToUpdate2}))
 
-				By("updating with an error")
-				destinationToUpdate2.GUID = "missing"
-				updatedDestinationsWithNoGUID, errWithNoGUID := egressDestinationsStore.Update([]store.EgressDestination{destinationToUpdate1, destinationToUpdate2})
-				Expect(errWithNoGUID).To(MatchError("egress destination store update metadata: destination GUID not found"))
-				Expect(updatedDestinationsWithNoGUID).To(HaveLen(0))
-
 				By("listing updated destinations to ensure the updates were persisted")
 				destinations, err = egressDestinationsStore.All()
 				Expect(err).NotTo(HaveOccurred())
@@ -376,6 +370,35 @@ var _ = Describe("EgressDestinationStore", func() {
 
 				It("rolls back the transaction", func() {
 					Expect(tx.RollbackCallCount()).To(Equal(1))
+				})
+			})
+
+			Context("when metadata row does not exist", func() {
+				BeforeEach(func() {
+					destinationMetadataRepo.UpdateReturns(errors.New("destination GUID not found"))
+
+				})
+
+				It("creates metadata row when IPRange row exists", func() {
+					egressDestinationRepo.UpdateIPRangeReturns(nil)
+					_, err := egressDestinationsStore.Update(destinationsToUpdate)
+
+					Expect(err).NotTo(HaveOccurred())
+					Expect(destinationMetadataRepo.CreateCallCount()).To(Equal(1))
+				})
+
+				It("returns error metadata row cannot be created when IPRange row exists", func() {
+					egressDestinationRepo.UpdateIPRangeReturns(nil)
+					destinationMetadataRepo.CreateReturns(0, errors.New("something terrible happened"))
+					_, err := egressDestinationsStore.Update(destinationsToUpdate)
+
+					Expect(err).To(MatchError("egress destination store create missing metadata: something terrible happened"))
+				})
+
+				It("returns an error when IPRange does not exist", func() {
+					egressDestinationRepo.UpdateIPRangeReturns(errors.New("destination GUID not found"))
+					_, err := egressDestinationsStore.Update(destinationsToUpdate)
+					Expect(err).To(MatchError("egress destination store update iprange: destination GUID not found"))
 				})
 			})
 		})
