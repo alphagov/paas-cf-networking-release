@@ -346,7 +346,8 @@ var _ = Describe("EgressDestinationStore", func() {
 					Expect(err).To(MatchError("egress destination store update metadata: can't update metadata"))
 				})
 			})
-			Context("when updating the destintaion fails", func() {
+
+			Context("when updating the destination fails", func() {
 				BeforeEach(func() {
 					egressDestinationRepo.UpdateIPRangeReturns(errors.New("can't update iprange"))
 				})

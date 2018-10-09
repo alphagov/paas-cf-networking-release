@@ -32,11 +32,18 @@ func (d *DestinationsUpdate) ServeHTTP(w http.ResponseWriter, req *http.Request)
 		d.ErrorResponse.InternalServerError(d.Logger, w, err, "error reading request")
 		return
 	}
-	//TODO: assert requested destinations have IDs
+
 	destinations, err = d.EgressDestinationMapper.AsEgressDestinations(requestBytes)
 	if err != nil {
 		d.ErrorResponse.BadRequest(d.Logger, w, err, fmt.Sprintf("error parsing egress destination: %s", err))
 		return
+	}
+
+	for _, destination := range destinations {
+		if destination.GUID == "" {
+			d.ErrorResponse.BadRequest(d.Logger, w, nil, fmt.Sprintf("destination id not found on request"))
+			return
+		}
 	}
 
 	updatedDestinations, err = d.EgressDestinationStore.Update(destinations)

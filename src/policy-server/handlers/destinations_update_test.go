@@ -148,4 +148,16 @@ var _ = Describe("Destinations update handler", func() {
 		Expect(resp.Code).To(Equal(http.StatusInternalServerError))
 		Expect(resp.Body.Bytes()).To(MatchJSON(`{"error": "error serializing egress destinations"}`))
 	})
+
+	It("returns an error when requested update destination is missing an ID", func() {
+		requestedDestinationsWithMissingGUID := []store.EgressDestination{
+			{GUID: "req-one"},
+			{Name: "a name is not a GUID"},
+		}
+		fakeMarshaller.AsEgressDestinationsReturns(requestedDestinationsWithMissingGUID, nil)
+
+		MakeRequestWithLoggerAndAuth(handler.ServeHTTP, resp, request, logger, token)
+		Expect(resp.Code).To(Equal(http.StatusBadRequest))
+		Expect(resp.Body.Bytes()).To(MatchJSON(`{"error": "destination id not found on request"}`))
+	})
 })
